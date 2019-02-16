@@ -631,7 +631,10 @@ public class ServiceTaskManager {
                             }
                         } else {
                             try {
-                                channel.txRollback();
+                                // channel.txRollback();
+                                // send nack to broker with requeue mechanism
+                                channel.basicNack(message.getDeliveryTag(),false, true);
+                                channel.txCommit();
                             } catch (SocketException exx) {
                                 if (!isServiceTaskManagerActive()) {
                                     throw exx;
