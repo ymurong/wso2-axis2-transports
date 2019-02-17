@@ -40,6 +40,7 @@ import java.util.Collections;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 
 /**
@@ -304,6 +305,7 @@ public class ServiceTaskManager {
         private int qos = -1; //-1 means qos is not specified, in that case only basic qos will be applied to channel
         private QueueingConsumer queueingConsumer;
         private volatile boolean connected = false;
+        private Map redeliveryCountMap = new ConcurrentHashMap<String, Integer>();
 
         MessageListenerTask() {
             synchronized (pollingTasks) {
@@ -607,8 +609,12 @@ public class ServiceTaskManager {
                     try {
                         successful = rabbitMQMessageReceiver.onMessage(message);
                     } finally {
+                        String redeliveryCountKey = message.getCorrelationId() == null ? Integer.toString(message.hashCode()) : message.getCorrelationId();
                         if (successful) {
                             try {
+                                if (redeliveryCountMap.get(redeliveryCountKey) != null) {
+                                    redeliveryCountMap.remove(redeliveryCountKey);
+                                }
                                 if (!autoAck) {
                                     channel.basicAck(message.getDeliveryTag(), false);
                                 }
@@ -632,7 +638,26 @@ public class ServiceTaskManager {
                             }
                         } else {
                             try {
-                                channel.txRollback();
+                                // channel.txRollback();
+                                // According to the spec, rollback doesn't automatically redeliver unacked messages.
+                                // We need here a more intelligent way to treat unsuccessful messages
+                                redeliveryCountMap.putIfAbsent(redeliveryCountKey, 0);
+                                redeliveryCountMap.replace(redeliveryCountKey, (Integer) redeliveryCountMap.get(redeliveryCountKey) + 1);
+                                if ((Integer) redeliveryCountMap.get(redeliveryCountKey) < 3) {
+                                    // redelivery count < 3 -> requeue message
+                                    channel.basicNack(message.getDeliveryTag(), false, true);
+                                    channel.txCommit();
+                                } else {
+                                    // deliver to dead letter queue
+                                    // !!! important we assume that the queue that this message resided has already a DLX feature, if not, the message will be dropped.
+                                    if (log.isDebugEnabled()) {
+                                        log.debug("Message will be delivered to DLX for service " + serviceName +
+                                                ", Listner id - " + Thread.currentThread().getId() + ", if no DLX has been configured, this message will be dropped.");
+                                    }
+                                    redeliveryCountMap.remove(redeliveryCountKey);
+                                    channel.basicNack(message.getDeliveryTag(), false, false);  // the last argument meaning no requeue which will make the message become dead message
+                                    channel.txCommit();
+                                }
                             } catch (SocketException exx) {
                                 if (!isServiceTaskManagerActive()) {
                                     throw exx;
