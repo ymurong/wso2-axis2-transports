@@ -1,20 +1,20 @@
 /*
-* Copyright (c) 2016, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
-*
-* WSO2 Inc. licenses this file to you under the Apache License,
-* Version 2.0 (the "License"); you may not use this file except
-* in compliance with the License.
-* You may obtain a copy of the License at
-*
-* http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing,
-* software distributed under the License is distributed on an
-* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-* KIND, either express or implied. See the License for the
-* specific language governing permissions and limitations
-* under the License.
-*/
+ * Copyright (c) 2016, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+ *
+ * WSO2 Inc. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.axis2.transport.rabbitmq;
 
 import com.rabbitmq.client.AMQP;
@@ -35,11 +35,8 @@ import org.apache.commons.logging.LogFactory;
 
 import java.io.IOException;
 import java.net.SocketException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Hashtable;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Each service will have one ServiceTaskManager instance that will send, manage and also destroy
@@ -158,8 +155,8 @@ public class ServiceTaskManager {
             } catch (NumberFormatException e) {
                 concurrentConsumers = RabbitMQConstants.CONCURRENT_CONSUMER_COUNT_DEFAULT;
                 log.warn("Can't parse given RabbitMQ concurrentConsumerCount value as a integer, hence using " +
-                         "channel with default (one MessageListner), provided concurrentConsumerCount value - " +
-                         concurrentConsumerCountString);
+                        "channel with default (one MessageListner), provided concurrentConsumerCount value - " +
+                        concurrentConsumerCountString);
             }
         }
         /**
@@ -174,7 +171,7 @@ public class ServiceTaskManager {
             } catch (NumberFormatException e) {
                 cacheLevel = RabbitMQConstants.CACHE_NONE;
                 log.warn("Can't parse given RabbitMQ cacheLevel value as a integer, hence using " +
-                         "default (CACHE_NONE - no cache), provided cacheLevel value - " + cacheLevelString);
+                        "default (CACHE_NONE - no cache), provided cacheLevel value - " + cacheLevelString);
             }
         }
         for (int i = 0; i < concurrentConsumers; i++) {
@@ -197,7 +194,7 @@ public class ServiceTaskManager {
                 Thread.sleep(RabbitMQConstants.DEFAULT_WAIT_TIME_BEFORE_CLOSING);
             } catch (InterruptedException e) {
                 log.warn("Closing connections before waiting for them to be closed automatically, may throw " +
-                         "exceptions " + serviceName, e);
+                        "exceptions " + serviceName, e);
             }
             if (cacheLevel >= RabbitMQConstants.CACHE_CONNECTION) {
                 closeSharedConnection();
@@ -222,31 +219,31 @@ public class ServiceTaskManager {
                 }
             } catch (AlreadyClosedException e) {
                 log.warn("Error while closing sharedConnection, AlreadyClosedException, service - " + serviceName +
-                         ", Listner id - " + Thread.currentThread().getId());
+                        ", Listner id - " + Thread.currentThread().getId());
                 if (log.isDebugEnabled()) {
                     log.debug("Error while closing sharedConnection, AlreadyClosedException, service - " +
-                              serviceName + ", Listner id - " + Thread.currentThread().getId(), e);
+                            serviceName + ", Listner id - " + Thread.currentThread().getId(), e);
                 }
             } catch (ShutdownSignalException ex) {
                 log.warn("Error while closing sharedConnection, ShutdownSignalException, service - " + serviceName +
-                         ", Listner id - " + Thread.currentThread().getId());
+                        ", Listner id - " + Thread.currentThread().getId());
                 if (log.isDebugEnabled()) {
                     log.debug("Error while closing sharedConnection, ShutdownSignalException, service - " +
-                              serviceName + ", Listner id - " + Thread.currentThread().getId(), ex);
+                            serviceName + ", Listner id - " + Thread.currentThread().getId(), ex);
                 }
             } catch (SocketException exx) {
                 log.warn("Error while closing sharedConnection, SocketException, service - " + serviceName +
-                         ", Listner id - " + Thread.currentThread().getId());
+                        ", Listner id - " + Thread.currentThread().getId());
                 if (log.isDebugEnabled()) {
                     log.debug("Error while closing sharedConnection, SocketException, service - " +
-                              serviceName + ", Listner id - " + Thread.currentThread().getId(), exx);
+                            serviceName + ", Listner id - " + Thread.currentThread().getId(), exx);
                 }
             } catch (IOException e) {
                 log.warn("Error while closing sharedConnection, IOException, service - " + serviceName +
-                         ", Listner id - " + Thread.currentThread().getId());
+                        ", Listner id - " + Thread.currentThread().getId());
                 if (log.isDebugEnabled()) {
                     log.debug("Error while closing sharedConnection, IOException, service - " +
-                              serviceName + ", Listner id - " + Thread.currentThread().getId(), e);
+                            serviceName + ", Listner id - " + Thread.currentThread().getId(), e);
                 }
             } finally {
                 sharedConnection = null;
@@ -303,6 +300,7 @@ public class ServiceTaskManager {
         private int qos = -1; //-1 means qos is not specified, in that case only basic qos will be applied to channel
         private QueueingConsumer queueingConsumer;
         private volatile boolean connected = false;
+        private Map redeliveryCountMap = new ConcurrentHashMap<String, Integer>();
 
         MessageListenerTask() {
             synchronized (pollingTasks) {
@@ -336,79 +334,79 @@ public class ServiceTaskManager {
                     } catch (AlreadyClosedException e) {
                         if (isServiceTaskManagerActive()) {
                             log.error("Error, Connection already closed " + serviceName + ", Listner id - " +
-                                      Thread.currentThread().getId(), e);
+                                    Thread.currentThread().getId(), e);
                             if (!retryIfNotStopped()) {
                                 break;
                             }
                         } else {
                             log.warn("Error, Connection already closed " + serviceName + ", Listner id - " +
-                                     Thread.currentThread().getId());
+                                    Thread.currentThread().getId());
                             if (log.isDebugEnabled()) {
                                 log.debug("Error, Connection already closed " + serviceName + ", Listner id - " +
-                                          Thread.currentThread().getId(), e);
+                                        Thread.currentThread().getId(), e);
                             }
                         }
                     } catch (ShutdownSignalException sse) {
                         if (sse.isInitiatedByApplication()) {
                             log.warn("RabbitMQ Listener of the service " + serviceName + " was disconnected, " +
-                                     "Shutdown signal issued, Listner id - " + Thread.currentThread().getId());
+                                    "Shutdown signal issued, Listner id - " + Thread.currentThread().getId());
                             if (log.isDebugEnabled()) {
                                 log.debug("RabbitMQ Listener of the service " + serviceName + " was disconnected, " +
-                                          "Shutdown signal issued, Listner id - " + Thread.currentThread().getId(), sse);
+                                        "Shutdown signal issued, Listner id - " + Thread.currentThread().getId(), sse);
                             }
                             getUpdateListnerState(true, STATE_STOPPED);
                             break;
                         } else if (!isServiceTaskManagerActive()) {
                             log.warn("RabbitMQ Listener of the service " + serviceName +
-                                     " was disconnected, Listner id - " + Thread.currentThread().getId());
+                                    " was disconnected, Listner id - " + Thread.currentThread().getId());
                             if (log.isDebugEnabled()) {
                                 log.debug("RabbitMQ Listener of the service " + serviceName +
-                                          " was disconnected, Listner id - " + Thread.currentThread().getId(), sse);
+                                        " was disconnected, Listner id - " + Thread.currentThread().getId(), sse);
                             }
                         } else {
                             log.error("RabbitMQ Listener of the service " + serviceName + " was disconnected, " +
-                                      "task manager still active, Listner id - " + Thread.currentThread().getId(), sse);
+                                    "task manager still active, Listner id - " + Thread.currentThread().getId(), sse);
                             if (!retryIfNotStopped()) {
                                 break;
                             }
                         }
                     } catch (OMException e) {
                         log.error("Invalid Message Format while Consuming the message, Listner id - " +
-                                  Thread.currentThread().getId(), e);
+                                Thread.currentThread().getId(), e);
                     } catch (SocketException exx) {
                         if (!isServiceTaskManagerActive()) {
                             log.warn("RabbitMQ listner disconnected, service - " + serviceName +
-                                     ", Listner id - " + Thread.currentThread().getId());
+                                    ", Listner id - " + Thread.currentThread().getId());
                             if (log.isDebugEnabled()) {
                                 log.debug("RabbitMQ listner disconnected, service - " + serviceName +
-                                          ", Listner id - " + Thread.currentThread().getId(), exx);
+                                        ", Listner id - " + Thread.currentThread().getId(), exx);
                             }
                         } else {
                             log.error("RabbitMQ listner disconnected, service - " + serviceName +
-                                      ", Listner id - " + Thread.currentThread().getId(), exx);
+                                    ", Listner id - " + Thread.currentThread().getId(), exx);
                         }
                     } catch (IOException e) {
                         if (e.getCause() instanceof ShutdownSignalException &&
-                            ((ShutdownSignalException) e.getCause()).isInitiatedByApplication()) {
+                                ((ShutdownSignalException) e.getCause()).isInitiatedByApplication()) {
                             log.warn("RabbitMQ Listener of the service " + serviceName + " was disconnected, " +
-                                     "Shutdown signal issued, Listner id - " + Thread.currentThread().getId());
+                                    "Shutdown signal issued, Listner id - " + Thread.currentThread().getId());
                             if (log.isDebugEnabled()) {
                                 log.debug("RabbitMQ Listener of the service " + serviceName + " was disconnected, " +
-                                          "Shutdown signal issued, Listner id - " + Thread.currentThread().getId(), e);
+                                        "Shutdown signal issued, Listner id - " + Thread.currentThread().getId(), e);
                             }
                             getUpdateListnerState(true, STATE_STOPPED);
                             break;
                         } else if (!isServiceTaskManagerActive()) {
                             log.warn("RabbitMQ Listener of the service " + serviceName + " was disconnected, " +
-                                     "IOException occurred, Listner id - " + Thread.currentThread().getId());
+                                    "IOException occurred, Listner id - " + Thread.currentThread().getId());
                             if (log.isDebugEnabled()) {
                                 log.debug("RabbitMQ Listener of the service " + serviceName + " was disconnected, " +
-                                          "IOException occurred, Listner id - " + Thread.currentThread().getId(), e);
+                                        "IOException occurred, Listner id - " + Thread.currentThread().getId(), e);
                             }
                         } else {
                             log.error("RabbitMQ Listener of the service " + serviceName + " was disconnected, " +
-                                      "IOException occurred, but task manager still active, Listner id  " +
-                                      Thread.currentThread().getId(), e);
+                                    "IOException occurred, but task manager still active, Listner id  " +
+                                    Thread.currentThread().getId(), e);
                             if (!retryIfNotStopped()) {
                                 break;
                             }
@@ -416,31 +414,31 @@ public class ServiceTaskManager {
                     } catch (AxisRabbitMQException e) {
                         if (isServiceTaskManagerActive()) {
                             log.error("Error, Connection closed, AxisRabbitMQException occurred, service " +
-                                      serviceName + ", Listner id - " + Thread.currentThread().getId(), e);
+                                    serviceName + ", Listner id - " + Thread.currentThread().getId(), e);
                             if (!retryIfNotStopped()) {
                                 break;
                             }
                         } else {
                             log.warn("Error, Connection closed, AxisRabbitMQException occurred, service " +
-                                     serviceName + ", Listner id - " + Thread.currentThread().getId());
+                                    serviceName + ", Listner id - " + Thread.currentThread().getId());
                             if (log.isDebugEnabled()) {
                                 log.debug("Error, Connection closed, AxisRabbitMQException occurred, service " +
-                                          serviceName + ", Listner id - " + Thread.currentThread().getId(), e);
+                                        serviceName + ", Listner id - " + Thread.currentThread().getId(), e);
                             }
                         }
                     } catch (Exception e) {
                         if (isServiceTaskManagerActive()) {
                             log.error("Error, Connection closed, Exception occurred, service " + serviceName +
-                                      ", Listner id - " + Thread.currentThread().getId(), e);
+                                    ", Listner id - " + Thread.currentThread().getId(), e);
                             if (!retryIfNotStopped()) {
                                 break;
                             }
                         } else {
                             log.warn("Error, Connection closed, Exception occurred, service " + serviceName +
-                                     ", Listner id - " + Thread.currentThread().getId());
+                                    ", Listner id - " + Thread.currentThread().getId());
                             if (log.isDebugEnabled()) {
                                 log.debug("Error, Connection closed, Exception occurred, service " + serviceName +
-                                          ", Listner id - " + Thread.currentThread().getId(), e);
+                                        ", Listner id - " + Thread.currentThread().getId(), e);
                             }
                         }
                     }
@@ -474,7 +472,7 @@ public class ServiceTaskManager {
                 } catch (NumberFormatException e) {
                     qos = -1;
                     log.warn("Can't parse given RabbitMQ qos value as a integer, hence using " +
-                             "channel without qos, provided qos value - " + qosString);
+                            "channel without qos, provided qos value - " + qosString);
                 }
             }
             queueingConsumer = new QueueingConsumer(getChannel());
@@ -484,7 +482,7 @@ public class ServiceTaskManager {
 
             if (log.isDebugEnabled()) {
                 log.debug("Starting MessageListner Thread - " + Thread.currentThread().getId() +
-                          ", with channel(hashcode) - " + queueingConsumer.getChannel().hashCode());
+                        ", with channel(hashcode) - " + queueingConsumer.getChannel().hashCode());
             }
             String autoAckStringValue = rabbitMQProperties.get(RabbitMQConstants.QUEUE_AUTO_ACK);
             if (autoAckStringValue != null) {
@@ -498,13 +496,13 @@ public class ServiceTaskManager {
             if (StringUtils.isEmpty(queueName)) {
                 queueName = serviceName;
                 log.info("No queue name is specified for " + serviceName + ". " +
-                         "Service name will be used as queue name");
+                        "Service name will be used as queue name");
             }
 
             if (routeKey == null) {
                 log.info(
                         "No routing key specified. Using queue name as the " +
-                        "routing key.");
+                                "routing key.");
                 routeKey = queueName;
             }
 
@@ -532,7 +530,7 @@ public class ServiceTaskManager {
                 queueingConsumer.getChannel().queueBind(queueName, exchangeName, routeKey);
                 if (log.isDebugEnabled()) {
                     log.debug("Bind queue '" + queueName + "' to exchange '" + exchangeName + "' with route key '" +
-                              routeKey + "'");
+                            routeKey + "'");
                 }
             }
 
@@ -541,13 +539,13 @@ public class ServiceTaskManager {
                 queueingConsumer.getChannel().basicConsume(queueName, autoAck, consumerTagString, queueingConsumer);
                 if (log.isDebugEnabled()) {
                     log.debug("Start consuming queue '" + queueName + "' with consumer tag '" + consumerTagString +
-                              "' for service " + serviceName);
+                            "' for service " + serviceName);
                 }
             } else {
                 consumerTagString = queueingConsumer.getChannel().basicConsume(queueName, autoAck, queueingConsumer);
                 if (log.isDebugEnabled()) {
                     log.debug("Start consuming queue '" + queueName + "' with consumer tag '" + consumerTagString +
-                              "' for service " + serviceName);
+                            "' for service " + serviceName);
                 }
             }
         }
@@ -575,7 +573,7 @@ public class ServiceTaskManager {
                         throw exx;
                     } else {
                         log.error("Error while starting transaction, SocketException, service - " + serviceName +
-                                  ", Listner id - " + Thread.currentThread().getId(), exx);
+                                ", Listner id - " + Thread.currentThread().getId(), exx);
                         continue;
                     }
                 } catch (IOException e) {
@@ -583,7 +581,7 @@ public class ServiceTaskManager {
                         throw e;
                     } else {
                         log.error("Error while starting transaction, IOException, service - " + serviceName +
-                                  ", Listner id - " + Thread.currentThread().getId(), e);
+                                ", Listner id - " + Thread.currentThread().getId(), e);
                         continue;
                     }
                 }
@@ -599,15 +597,19 @@ public class ServiceTaskManager {
                 }
                 if (log.isDebugEnabled()) {
                     log.debug("Processing message by Message Listner Thread - " + Thread.currentThread().getId() +
-                              ", time - " + System.nanoTime() + ", channel(hashcode) - " + channel.hashCode());
+                            ", time - " + System.nanoTime() + ", channel(hashcode) - " + channel.hashCode());
                 }
 
                 if (message != null) {
                     try {
                         successful = rabbitMQMessageReceiver.onMessage(message);
                     } finally {
+                        String redeliveryCountKey = message.getCorrelationId() == null ? Integer.toString(message.hashCode()) : message.getCorrelationId();
                         if (successful) {
                             try {
+                                if (redeliveryCountMap.get(redeliveryCountKey) != null) {
+                                    redeliveryCountMap.remove(redeliveryCountKey);
+                                }
                                 if (!autoAck) {
                                     channel.basicAck(message.getDeliveryTag(), false);
                                 }
@@ -617,7 +619,7 @@ public class ServiceTaskManager {
                                     throw exx;
                                 } else {
                                     log.error("Error while committing transaction, SocketException, service - " + serviceName +
-                                              ", Listner id - " + Thread.currentThread().getId(), exx);
+                                            ", Listner id - " + Thread.currentThread().getId(), exx);
                                     continue;
                                 }
                             } catch (IOException e) {
@@ -625,22 +627,39 @@ public class ServiceTaskManager {
                                     throw e;
                                 } else {
                                     log.error("Error while committing transaction, IOException, service - " + serviceName +
-                                              ", Listner id - " + Thread.currentThread().getId(), e);
+                                            ", Listner id - " + Thread.currentThread().getId(), e);
                                     continue;
                                 }
                             }
                         } else {
                             try {
                                 // channel.txRollback();
-                                // send nack to broker with requeue mechanism
-                                channel.basicNack(message.getDeliveryTag(),false, true);
-                                channel.txCommit();
+                                // According to the spec, rollback doesn't automatically redeliver unacked messages.
+                                // We need here a more intelligent way to treat unsuccessful messages
+                                redeliveryCountMap.putIfAbsent(redeliveryCountKey, 0);
+                                redeliveryCountMap.replace(redeliveryCountKey, (Integer) redeliveryCountMap.get(redeliveryCountKey) + 1);
+                                if ((Integer) redeliveryCountMap.get(redeliveryCountKey) < 3) {
+                                    // redelivery count < 3 -> requeue message
+                                    channel.basicNack(message.getDeliveryTag(), false, true);
+                                    channel.txCommit();
+                                } else {
+                                    // deliver to dead letter queue
+                                    // !!! important we assume that the queue that this message resided has already a DLX feature, if not, the message will be dropped.
+                                    if (log.isDebugEnabled()) {
+                                        log.debug("Message will be delivered to DLX for service " + serviceName +
+                                                ", Listner id - " + Thread.currentThread().getId() + ", if no DLX has been configured, this message will be dropped.");
+                                    }
+                                    redeliveryCountMap.remove(redeliveryCountKey);
+                                    channel.basicNack(message.getDeliveryTag(), false, false);  // the last argument meaning no requeue which will make the message become dead message
+                                    channel.txCommit();
+                                }
+
                             } catch (SocketException exx) {
                                 if (!isServiceTaskManagerActive()) {
                                     throw exx;
                                 } else {
                                     log.error("Error while trying to roll back transaction, SocketException, service - " + serviceName +
-                                              ", Listner id - " + Thread.currentThread().getId(), exx);
+                                            ", Listner id - " + Thread.currentThread().getId(), exx);
                                     continue;
                                 }
                             } catch (IOException e) {
@@ -648,7 +667,7 @@ public class ServiceTaskManager {
                                     throw e;
                                 } else {
                                     log.error("Error while trying to roll back transaction, IOException, service - " + serviceName +
-                                              ", Listner id - " + Thread.currentThread().getId(), e);
+                                            ", Listner id - " + Thread.currentThread().getId(), e);
                                     continue;
                                 }
                             }
@@ -664,7 +683,7 @@ public class ServiceTaskManager {
          *
          * @param consumer the consumer to get the delivery
          * @return RabbitMQMessage consumed by the consumer
-         * @throws InterruptedException on error
+         * @throws InterruptedException                        on error
          * @throws com.rabbitmq.client.ShutdownSignalException
          */
         private RabbitMQMessage getConsumerDelivery(QueueingConsumer consumer)
@@ -674,7 +693,7 @@ public class ServiceTaskManager {
             try {
                 if (log.isDebugEnabled()) {
                     log.debug("Waiting for next delivery from queue for service " + serviceName +
-                              ", Listner id - " + Thread.currentThread().getId());
+                            ", Listner id - " + Thread.currentThread().getId());
                 }
                 delivery = consumer.nextDelivery();
             } catch (InterruptedException e) {
@@ -726,31 +745,31 @@ public class ServiceTaskManager {
             int retryCountMax = rabbitMQConnectionFactory.getRetryCount();
             int retryCount = 0;
             while (isListnerActive() && !localConnection.isOpen()
-                   && ((retryCountMax == -1) || (retryCount < retryCountMax))) {
+                    && ((retryCountMax == -1) || (retryCount < retryCountMax))) {
                 retryCount++;
                 log.info("Attempting to reconnect to RabbitMQ Broker for the service " + serviceName +
-                         " in " + retryInterval + " ms, Listner id - " + Thread.currentThread().getId());
+                        " in " + retryInterval + " ms, Listner id - " + Thread.currentThread().getId());
                 try {
                     Thread.sleep(retryInterval);
                 } catch (InterruptedException e) {
                     log.error("Error while trying to reconnect to RabbitMQ Broker for the service - " + serviceName +
-                              ", Listner id - " + Thread.currentThread().getId(), e);
+                            ", Listner id - " + Thread.currentThread().getId(), e);
                 }
             }
             if (!isListnerActive() || !serviceTaskManagerState.isActive()) {
                 if (log.isDebugEnabled()) {
                     log.debug("Service deactivated during waiting period, service - " + serviceName +
-                              ", Listner id - " + Thread.currentThread().getId());
+                            ", Listner id - " + Thread.currentThread().getId());
                 }
                 getUpdateListnerState(true, STATE_SHUTTING_DOWN);
                 return false;
             } else if (localConnection.isOpen()) {
                 log.info("Successfully reconnected to RabbitMQ Broker for the service " + serviceName +
-                         ", Listner id - " + Thread.currentThread().getId());
+                        ", Listner id - " + Thread.currentThread().getId());
                 return true;
             }
             log.error("Could not reconnect to the RabbitMQ Broker for the service " + serviceName +
-                      ". Connection is closed, Listner id - " + Thread.currentThread().getId());
+                    ". Connection is closed, Listner id - " + Thread.currentThread().getId());
             getUpdateListnerState(true, STATE_FAULTY);
             return false;
 
@@ -807,8 +826,8 @@ public class ServiceTaskManager {
                         setConnected(true);
                     } else {
                         throw new AxisRabbitMQException("Error, Shutdown signal issued, hence won't create " +
-                                                        "the localConnection, service - " + serviceName +
-                                                        ", Listner id - " + Thread.currentThread().getId());
+                                "the localConnection, service - " + serviceName +
+                                ", Listner id - " + Thread.currentThread().getId());
                     }
                 }
             } else if (localConnection == null) {
@@ -819,8 +838,8 @@ public class ServiceTaskManager {
                             sharedConnection = createConnection();
                         } else {
                             throw new AxisRabbitMQException("Error, Shutdown signal issued, hence won't create " +
-                                                            "the sharedConnection, service - " + serviceName +
-                                                            ", Listner id - " + Thread.currentThread().getId());
+                                    "the sharedConnection, service - " + serviceName +
+                                    ", Listner id - " + Thread.currentThread().getId());
                         }
                     }
                 }
@@ -868,35 +887,35 @@ public class ServiceTaskManager {
                         if (localConnection.isOpen()) {
                             localConnection.close();
                             log.info("RabbitMQ localConnection closed for service " + serviceName + ", Listner id - " +
-                                     Thread.currentThread().getId());
+                                    Thread.currentThread().getId());
                         }
                     } catch (AlreadyClosedException e) {
                         log.warn("Error while closing Connection, AlreadyClosedException, service - " + serviceName +
-                                 ", Listner id - " + Thread.currentThread().getId());
+                                ", Listner id - " + Thread.currentThread().getId());
                         if (log.isDebugEnabled()) {
                             log.debug("Error while closing Connection, AlreadyClosedException, service - " +
-                                      serviceName + ", Listner id - " + Thread.currentThread().getId(), e);
+                                    serviceName + ", Listner id - " + Thread.currentThread().getId(), e);
                         }
                     } catch (ShutdownSignalException ex) {
                         log.warn("Error while closing Connection, ShutdownSignalException, service - " + serviceName +
-                                 ", Listner id - " + Thread.currentThread().getId());
+                                ", Listner id - " + Thread.currentThread().getId());
                         if (log.isDebugEnabled()) {
                             log.debug("Error while closing Connection, ShutdownSignalException, service - " +
-                                      serviceName + ", Listner id - " + Thread.currentThread().getId(), ex);
+                                    serviceName + ", Listner id - " + Thread.currentThread().getId(), ex);
                         }
                     } catch (SocketException exx) {
                         log.warn("Error while closing Connection, SocketException, service - " + serviceName +
-                                 ", Listner id - " + Thread.currentThread().getId());
+                                ", Listner id - " + Thread.currentThread().getId());
                         if (log.isDebugEnabled()) {
                             log.debug("Error while closing Connection, SocketException, service - " +
-                                      serviceName + ", Listner id - " + Thread.currentThread().getId(), exx);
+                                    serviceName + ", Listner id - " + Thread.currentThread().getId(), exx);
                         }
                     } catch (IOException e) {
                         log.warn("Error while closing Connection, IOException, service - " + serviceName +
-                                 ", Listner id - " + Thread.currentThread().getId());
+                                ", Listner id - " + Thread.currentThread().getId());
                         if (log.isDebugEnabled()) {
                             log.debug("Error while closing Connection, IOException, service - " +
-                                      serviceName + ", Listner id - " + Thread.currentThread().getId(), e);
+                                    serviceName + ", Listner id - " + Thread.currentThread().getId(), e);
                         }
                     }
                 }
@@ -915,40 +934,40 @@ public class ServiceTaskManager {
                         if (channel.isOpen()) {
                             channel.close();
                             log.info("RabbitMQ consumer channel closed for service " + serviceName + ", Listner id - " +
-                                     Thread.currentThread().getId());
+                                    Thread.currentThread().getId());
                         }
                         if (channel.getConnection() != null && channel.getConnection().isOpen()) {
                             channel.getConnection().close();
                             log.info("RabbitMQ consumer connection closed for service " + serviceName + ", Listner id - " +
-                                     Thread.currentThread().getId());
+                                    Thread.currentThread().getId());
                         }
                     } catch (AlreadyClosedException e) {
                         log.warn("Error while closing consumer Connection, AlreadyClosedException, service - " + serviceName +
-                                 ", Listner id - " + Thread.currentThread().getId());
+                                ", Listner id - " + Thread.currentThread().getId());
                         if (log.isDebugEnabled()) {
                             log.debug("Error while closing consumer Connection, AlreadyClosedException, service - " +
-                                      serviceName + ", Listner id - " + Thread.currentThread().getId(), e);
+                                    serviceName + ", Listner id - " + Thread.currentThread().getId(), e);
                         }
                     } catch (ShutdownSignalException ex) {
                         log.warn("Error while closing consumer Connection, ShutdownSignalException, service - " + serviceName +
-                                 ", Listner id - " + Thread.currentThread().getId());
+                                ", Listner id - " + Thread.currentThread().getId());
                         if (log.isDebugEnabled()) {
                             log.debug("Error while closing consumer Connection, ShutdownSignalException, service - " +
-                                      serviceName + ", Listner id - " + Thread.currentThread().getId(), ex);
+                                    serviceName + ", Listner id - " + Thread.currentThread().getId(), ex);
                         }
                     } catch (SocketException exx) {
                         log.warn("Error while closing consumer Connection, SocketException, service - " + serviceName +
-                                 ", Listner id - " + Thread.currentThread().getId());
+                                ", Listner id - " + Thread.currentThread().getId());
                         if (log.isDebugEnabled()) {
                             log.debug("Error while closing consumer Connection, SocketException, service - " +
-                                      serviceName + ", Listner id - " + Thread.currentThread().getId(), exx);
+                                    serviceName + ", Listner id - " + Thread.currentThread().getId(), exx);
                         }
                     } catch (IOException e) {
                         log.warn("Error while closing consumer Connection, IOException, service - " + serviceName +
-                                 ", Listner id - " + Thread.currentThread().getId());
+                                ", Listner id - " + Thread.currentThread().getId());
                         if (log.isDebugEnabled()) {
                             log.debug("Error while closing consumer Connection, IOException, service - " +
-                                      serviceName + ", Listner id - " + Thread.currentThread().getId(), e);
+                                    serviceName + ", Listner id - " + Thread.currentThread().getId(), e);
                         }
                     }
                 }
@@ -989,11 +1008,12 @@ public class ServiceTaskManager {
         /**
          * Helper method which will check whether both listner and service task manager in active state. If not
          * update listner state to STATE_STOPPED as well
+         *
          * @return true if both are in STATE_STARTED, false otherwise
          */
         private boolean isServiceTaskManagerActive() {
             if (getUpdateListnerState(false, STATE_DUMMY) != STATE_STARTED ||
-                serviceTaskManagerState.getUpdateState(false, STATE_DUMMY) != STATE_STARTED) {
+                    serviceTaskManagerState.getUpdateState(false, STATE_DUMMY) != STATE_STARTED) {
                 getUpdateListnerState(true, STATE_STOPPED);
                 return false;
 
