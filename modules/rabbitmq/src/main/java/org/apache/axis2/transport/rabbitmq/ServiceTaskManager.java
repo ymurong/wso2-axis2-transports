@@ -35,11 +35,7 @@ import org.apache.commons.logging.LogFactory;
 
 import java.io.IOException;
 import java.net.SocketException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Hashtable;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 
@@ -609,7 +605,7 @@ public class ServiceTaskManager {
                     try {
                         successful = rabbitMQMessageReceiver.onMessage(message);
                     } finally {
-                        String redeliveryCountKey = message.getCorrelationId() == null ? Integer.toString(message.hashCode()) : message.getCorrelationId();
+                        String redeliveryCountKey = message.getCorrelationId() == null ? Integer.toString(Arrays.hashCode(message.getBody())) : message.getCorrelationId();
                         if (successful) {
                             try {
                                 if (redeliveryCountMap.get(redeliveryCountKey) != null) {
